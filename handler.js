@@ -1,30 +1,86 @@
-import { smsg } from './lib/simple.js'
-import { format } from 'util'
-import { fileURLToPath } from 'url'
-import path, { join } from 'path'
-import { unwatchFile, watchFile } from 'fs'
-import chalk from 'chalk'
-import fs from 'fs'
-import fetch from 'node-fetch'
-import moment from 'moment-timezone'
+import { smsg } from './lib/simple.js';
+import { format } from 'util';
+import { fileURLToPath } from 'url';
+import path, { join } from 'path';
+import { unwatchFile, watchFile } from 'fs';
+import chalk from 'chalk';
+import fs from 'fs';
+import fetch from 'node-fetch';
+import moment from 'moment-timezone';
+import { default as baileys, proto, getAggregateVotesInPollMessage } from '@adiwajshing/baileys';
+
+const isNumber = x => typeof x === 'number' && !isNaN(x);
+const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(resolve, ms));
+
+// إعداد رقم هاتفك لاستقبال إشعارات البوت
+const adminNumber = '212696262219@s.whatsapp.net';
+
 /**
- * @type {import('@adiwajshing/baileys')}
+ * Handle messages upsert
+ * @param {import('@adiwajshing/baileys').BaileysEventMap<unknown>['messages.upsert']} chatUpdate
  */
+export async function handler(chatUpdate) {
+    this.msgqueque = this.msgqueque || [];
+    if (!chatUpdate) return;
+
+    conn.pushMessage(chatUpdate.messages).catch(console.error);
+    let m = chatUpdate.messages[chatUpdate.messages.length - 1];
+    if (!m) return;
+
+    if (global.db.data == null) await global.loadDatabase();
+
+    try {
+        m = smsg(this, m) || m;
+        if (!m) return;
+
+        m.exp = 0;
+        m.limit = false;
+
+        // التحقق مما إذا كان المستخدم جديدًا
+        let user = global.db.data.users[m.sender];
+        if (!user) {
+            global.db.data.users[m.sender] = { allowed: false };
+            // إرسال إشعار إليك
+            await conn.sendMessage(adminNumber, {
+                text: `طلب جديد لاستخدام البوت\nرقم: ${m.sender}\nاسم: ${m.pushName}`,
+                buttons: [
+                    { buttonId: `approve_${m.sender}`, buttonText: { displayText: 'Approve' }, type: 1 }
+                ],
+                headerType: 1
+            });
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// إضافة حدث للاستماع إلى ردود الأزرار
+conn.on('messages.update', async (updates) => {
+    for (let { key, update } of updates) {
+        if (update.buttonsResponseMessage) {
+            let buttonId = update.buttonsResponseMessage.selectedButtonId;
+            if (buttonId.startsWith('approve_')) {
+                let userId = buttonId.split('_')[1];
+                if (global.db.data.users[userId]) {
+                    global.db.data.users[userId].allowed = true;
+                    await conn.sendMessage(userId, { text: 'لقد تمت الموافقة على استخدامك البوت. يمكنك الآن استخدامه!' });
+                }
+            }
+        }
+    }
+});
+
 const { 
 proto,
 getAggregateVotesInPollMessage
- } = (await import('@adiwajshing/baileys')).default
-const isNumber = x => typeof x === 'number' && !isNaN(x)
-const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function () {
-    clearTimeout(this)
-    resolve()
-}, ms))
+} = (await import('@adiwajshing/baileys')).default;
+
+const delayFunc = ms => isNumber(ms) && new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Handle messages upsert
  * @param {import('@adiwajshing/baileys').BaileysEventMap<unknown>['messages.upsert']} groupsUpdate 
  */
- 
 export async function handler(chatUpdate) {
     this.msgqueque = this.msgqueque || []
     if (!chatUpdate)
@@ -96,6 +152,7 @@ export async function handler(chatUpdate) {
                     chat.simi = false
                 if (!isNumber(chat.expired))
                     chat.expired = 0
+                if (!isNumber(user.level)) user.level = 0
             } else
                 global.db.data.chats[m.chat] = {
                     isBanned: false,
@@ -120,7 +177,7 @@ export async function handler(chatUpdate) {
                     expired: 0,
                     rpgs: false,
                     games: false
-                }
+}
             let settings = global.db.data.settings[this.user.jid]
             if (typeof settings !== 'object') global.db.data.settings[this.user.jid] = {}
             if (settings) {
