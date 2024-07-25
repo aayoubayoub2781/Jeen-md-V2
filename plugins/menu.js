@@ -28,12 +28,18 @@ _*< Bot Commands />*_
 
 ▢ *_/apk_*
 ▢ *_/mediafire_*
-▢ *_/yts_*
 ▢ *_/play_*
-▢ *_/bing_*
+▢ *_/pixellab_*
 ▢ *_/chatbot_*
 ▢ *_/ronaldo_*
-▢ *_/messi_*`.trim().replace('%readMore', readMore);
+▢ *_/messi_*`
+▢ *_/sticker_*
+▢ *_/tiktok_*
+▢ *_/snapchat_*
+▢ *_/telegraph_*
+▢ *_/emojimix_*
+▢ *_/cat_*.trim().replace('%readMore', readMore)
+  
 
     // Generate the menu image
     const image = await generateMenuImage();
